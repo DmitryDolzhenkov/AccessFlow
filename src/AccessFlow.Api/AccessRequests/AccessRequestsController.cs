@@ -26,6 +26,10 @@ public sealed class AccessRequestsController(AccessRequestService service) : Con
                 CreatedAtAction(nameof(Get), new { id = created.Id }, new CreatedAccessRequest(created.Id)),
             CreateAccessRequestResult.Invalid invalid =>
                 ValidationProblem(new ValidationProblemDetails(invalid.Errors.ToDictionary())),
+            CreateAccessRequestResult.ActiveAccessRequestExists =>
+                Problem(
+                    statusCode: StatusCodes.Status409Conflict,
+                    detail: "An Active Access Request for this Beneficiary and System already exists."),
             _ => throw new InvalidOperationException($"Unexpected result {result}."),
         };
     }
