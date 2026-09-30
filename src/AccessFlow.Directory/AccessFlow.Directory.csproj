@@ -7,11 +7,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
+    <InternalsVisibleTo Include="AccessFlow.Tests" />
   </ItemGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="AccessFlow.Tests" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.12" />
   </ItemGroup>
 
 </Project>

@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #pragma warning disable CA1814 // Prefer jagged arrays over multidimensional
 
-namespace AccessFlow.Directory.Migrations
+namespace AccessFlow.Api.Persistence.Migrations
 {
     /// <inheritdoc />
     public partial class Initial : Migration
@@ -13,6 +13,9 @@ namespace AccessFlow.Directory.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.EnsureSchema(
+                name: "access_requests");
+
             migrationBuilder.EnsureSchema(
                 name: "directory");
 
@@ -51,6 +54,45 @@ namespace AccessFlow.Directory.Migrations
                         onDelete: ReferentialAction.Restrict);
                 });
 
+            migrationBuilder.CreateTable(
+                name: "access_requests",
+                schema: "access_requests",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    RequesterId = table.Column<Guid>(type: "uuid", nullable: false),
+                    BeneficiaryId = table.Column<Guid>(type: "uuid", nullable: false),
+                    SystemId = table.Column<Guid>(type: "uuid", nullable: false),
+                    Justification = table.Column<string>(type: "text", nullable: false),
+                    Status = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
+                    CreatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_access_requests", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_access_requests_systems_SystemId",
+                        column: x => x.SystemId,
+                        principalSchema: "directory",
+                        principalTable: "systems",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_access_requests_users_BeneficiaryId",
+                        column: x => x.BeneficiaryId,
+                        principalSchema: "directory",
+                        principalTable: "users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_access_requests_users_RequesterId",
+                        column: x => x.RequesterId,
+                        principalSchema: "directory",
+                        principalTable: "users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
             migrationBuilder.InsertData(
                 schema: "directory",
                 table: "users",
@@ -74,6 +116,24 @@ namespace AccessFlow.Directory.Migrations
                 });
 
             migrationBuilder.CreateIndex(
+                name: "IX_access_requests_BeneficiaryId",
+                schema: "access_requests",
+                table: "access_requests",
+                column: "BeneficiaryId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_access_requests_RequesterId",
+                schema: "access_requests",
+                table: "access_requests",
+                column: "RequesterId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_access_requests_SystemId",
+                schema: "access_requests",
+                table: "access_requests",
+                column: "SystemId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_systems_OwnerId",
                 schema: "directory",
                 table: "systems",
@@ -83,6 +143,10 @@ namespace AccessFlow.Directory.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropTable(
+                name: "access_requests",
+                schema: "access_requests");
+
             migrationBuilder.DropTable(
                 name: "systems",
                 schema: "directory");

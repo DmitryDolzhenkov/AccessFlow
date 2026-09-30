@@ -2,7 +2,7 @@
 
 | Issue | Название | Статус | Примечания |
 |---|---|---|---|
-| #2 | Каркас решения и создание Access Request | Done | Модули Directory и AccessRequests — отдельные проекты со своими DbContext, схемами и миграциями. |
+| #2 | Каркас решения и создание Access Request | Done | Модули Directory и AccessRequests — отдельные проекты; общий AccessFlowDbContext в хосте, схемы на модуль, одна история миграций. |
 | #3 | Одна Active Access Request на пару Beneficiary + System | Todo | |
 | #4 | Audit Log: событие Created и чтение | Todo | |
 | #5 | Одобрение и отклонение Access Request System Owner | Todo | |

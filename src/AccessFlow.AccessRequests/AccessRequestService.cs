@@ -21,18 +21,9 @@ public sealed record AccessRequestView(
     AccessRequestStatus Status,
     DateTimeOffset CreatedAt);
 
-public sealed class AccessRequestService
+public sealed class AccessRequestService(DbContext db, IDirectory directory, TimeProvider timeProvider)
 {
-    private readonly AccessRequestsDbContext _db;
-    private readonly IDirectory _directory;
-    private readonly TimeProvider _timeProvider;
-
-    internal AccessRequestService(AccessRequestsDbContext db, IDirectory directory, TimeProvider timeProvider)
-    {
-        _db = db;
-        _directory = directory;
-        _timeProvider = timeProvider;
-    }
+    private readonly DbSet<AccessRequest> _accessRequests = db.Set<AccessRequest>();
 
     /// <summary>
     /// Creates a Pending Access Request on behalf of the caller (BR-03…BR-07).
@@ -44,20 +35,20 @@ public sealed class AccessRequestService
         if (string.IsNullOrWhiteSpace(command.Justification))
             errors[nameof(command.Justification)] = ["Justification is required."];
 
-        if (!await _directory.UserExistsAsync(command.BeneficiaryId, cancellationToken))
+        if (!await directory.UserExistsAsync(command.BeneficiaryId, cancellationToken))
             errors[nameof(command.BeneficiaryId)] = ["Beneficiary does not exist."];
 
-        if (await _directory.FindSystemAsync(command.SystemId, cancellationToken) is null)
+        if (await directory.FindSystemAsync(command.SystemId, cancellationToken) is null)
             errors[nameof(command.SystemId)] = ["System does not exist."];
 
         if (errors.Count > 0)
             return new CreateAccessRequestResult.Invalid(errors);
 
         var request = AccessRequest.Create(
-            callerId, command.BeneficiaryId, command.SystemId, command.Justification!, _timeProvider.GetUtcNow());
+            callerId, command.BeneficiaryId, command.SystemId, command.Justification!, timeProvider.GetUtcNow());
 
-        _db.AccessRequests.Add(request);
-        await _db.SaveChangesAsync(cancellationToken);
+        _accessRequests.Add(request);
+        await db.SaveChangesAsync(cancellationToken);
 
         return new CreateAccessRequestResult.Created(request.Id);
     }
@@ -67,11 +58,11 @@ public sealed class AccessRequestService
     /// </summary>
     public async Task<AccessRequestView?> GetAsync(Guid callerId, Guid id, CancellationToken cancellationToken)
     {
-        var request = await _db.AccessRequests.AsNoTracking().SingleOrDefaultAsync(r => r.Id == id, cancellationToken);
+        var request = await _accessRequests.AsNoTracking().SingleOrDefaultAsync(r => r.Id == id, cancellationToken);
         if (request is null)
             return null;
 
-        var system = await _directory.FindSystemAsync(request.SystemId, cancellationToken)
+        var system = await directory.FindSystemAsync(request.SystemId, cancellationToken)
             ?? throw new InvalidOperationException($"System {request.SystemId} of Access Request {request.Id} is missing.");
 
         if (!request.IsVisibleTo(callerId, system.OwnerId))

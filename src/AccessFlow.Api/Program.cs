@@ -1,9 +1,11 @@
 using System.Text.Json.Serialization;
 using AccessFlow.AccessRequests;
 using AccessFlow.Api.Identity;
+using AccessFlow.Api.Persistence;
 using AccessFlow.Directory;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,8 +13,10 @@ var connectionString = builder.Configuration.GetConnectionString("AccessFlow")
     ?? throw new InvalidOperationException("Connection string 'AccessFlow' is not configured.");
 
 builder.Services.AddSingleton(TimeProvider.System);
-builder.Services.AddDirectoryModule(connectionString);
-builder.Services.AddAccessRequestsModule(connectionString);
+builder.Services.AddDbContext<AccessFlowDbContext>(options => options.UseNpgsql(connectionString));
+builder.Services.AddScoped<DbContext>(sp => sp.GetRequiredService<AccessFlowDbContext>());
+builder.Services.AddDirectoryModule();
+builder.Services.AddAccessRequestsModule();
 
 builder.Services
     .AddAuthentication(UserIdHeaderAuthenticationHandler.SchemeName)
@@ -28,8 +32,10 @@ builder.Services
 
 var app = builder.Build();
 
-await app.Services.MigrateDirectoryAsync();
-await app.Services.MigrateAccessRequestsAsync();
+await using (var scope = app.Services.CreateAsyncScope())
+{
+    await scope.ServiceProvider.GetRequiredService<AccessFlowDbContext>().Database.MigrateAsync();
+}
 
 app.UseAuthentication();
 app.UseAuthorization();
