@@ -79,6 +79,30 @@ Provide:
 - assumptions;
 - remaining risks.
 
+# Commands
+
+Use quiet output; it is enough to see failures.
+
+- Build: `dotnet build -v q`
+- All tests: `dotnet test -v q --logger "console;verbosity=minimal"`
+  (needs running Docker: Testcontainers starts PostgreSQL)
+- Single test class: add `--filter "FullyQualifiedName~<ClassName>"`
+- New migration (single `AccessFlowDbContext` in the host):
+  `dotnet ef migrations add <Name> --project src/AccessFlow.Api --output-dir Persistence/Migrations`
+- Local run: see README.md.
+
+# Git and PR
+
+- One branch per issue, from up-to-date `main`: `feature/<issue>-<short-slug>`,
+  e.g. `feature/3-single-active-access-request`. Docs/tooling: `docs/<slug>`, `chore/<slug>`.
+- Never commit to `main` directly.
+- Commit messages in English, imperative, with the issue number: `Add ... (#3)`.
+- PR: title = issue title, body starts with `Closes #<issue>` and contains
+  the completion report (acceptance criteria → evidence table).
+- Windows PowerShell 5.1 breaks multi-line `git commit`/`gh` arguments:
+  pass messages via a Bash heredoc or `--body-file`.
+- Never commit `.env` or secrets; the connection string lives in user-secrets.
+
 # Progress
 
 Update docs/progress.md after completing an issue.
