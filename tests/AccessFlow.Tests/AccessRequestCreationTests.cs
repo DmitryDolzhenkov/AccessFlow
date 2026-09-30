@@ -5,8 +5,12 @@ using AccessFlow.Directory;
 namespace AccessFlow.Tests;
 
 [Collection(ApiCollection.Name)]
-public sealed class AccessRequestCreationTests(AccessFlowApiFactory factory)
+public sealed class AccessRequestCreationTests(AccessFlowApiFactory factory) : IAsyncLifetime
 {
+    public Task InitializeAsync() => factory.ResetAsync();
+
+    public Task DisposeAsync() => Task.CompletedTask;
+
     private sealed record AccessRequestDto(
         Guid Id, Guid RequesterId, Guid BeneficiaryId, Guid SystemId, string Justification, string Status, DateTimeOffset CreatedAt);
 

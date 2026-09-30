@@ -3,7 +3,7 @@
 | Issue | Название | Статус | Примечания |
 |---|---|---|---|
 | #2 | Каркас решения и создание Access Request | Done | Модули Directory и AccessRequests — отдельные проекты; общий AccessFlowDbContext в хосте, схемы на модуль, одна история миграций. |
-| #3 | Одна Active Access Request на пару Beneficiary + System | Todo | |
+| #3 | Одна Active Access Request на пару Beneficiary + System | Done | Частичный уникальный индекс `(BeneficiaryId, SystemId) WHERE Status IN ('Pending', 'Approved')`; нарушение индекса при вставке → `409`. Тесты очищают `access_requests` перед каждым тестом. |
 | #4 | Audit Log: событие Created и чтение | Todo | |
 | #5 | Одобрение и отклонение Access Request System Owner | Todo | |
 | #6 | Отмена Access Request Requester | Todo | |
