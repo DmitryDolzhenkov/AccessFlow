@@ -4,7 +4,7 @@
 |---|---|---|---|
 | #2 | Каркас решения и создание Access Request | Done | Модули Directory и AccessRequests — отдельные проекты; общий AccessFlowDbContext в хосте, схемы на модуль, одна история миграций. |
 | #3 | Одна Active Access Request на пару Beneficiary + System | Done | Частичный уникальный индекс `(BeneficiaryId, SystemId) WHERE Status IN ('Pending', 'Approved')`; нарушение индекса при вставке → `409`. Тесты очищают `access_requests` перед каждым тестом. |
-| #4 | Audit Log: событие Created и чтение | Todo | |
+| #4 | Audit Log: событие Created и чтение | Done | Таблица `access_requests.audit_log`; заявка и запись Created добавляются в один `SaveChangesAsync` (одна транзакция). `ActorId` пока обязателен и ссылается на `directory.users` — для BR-25 (исполнитель AccessFlow) в #8 его нужно будет изменить. Тесты только через API: порядок нескольких записей, BR-28 и BR-27 для `400`/`401` подтверждены ревью кода. |
 | #5 | Одобрение и отклонение Access Request System Owner | Todo | |
 | #6 | Отмена Access Request Requester | Todo | |
 | #7 | Списки: мои заявки и ждут моего решения | Todo | |

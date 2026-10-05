@@ -40,4 +40,11 @@ public sealed class AccessRequestsController(AccessRequestService service) : Con
         var request = await service.GetAsync(User.GetUserId(), id, cancellationToken);
         return request is null ? NotFound() : request;
     }
+
+    [HttpGet("{id:guid}/audit-log")]
+    public async Task<ActionResult<IReadOnlyList<AuditLogEntryView>>> GetAuditLog(Guid id, CancellationToken cancellationToken)
+    {
+        var auditLog = await service.GetAuditLogAsync(User.GetUserId(), id, cancellationToken);
+        return auditLog is null ? NotFound() : Ok(auditLog);
+    }
 }
