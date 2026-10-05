@@ -16,7 +16,7 @@ public static class AccessRequestsModule
 internal sealed class AccessRequestConfiguration : IEntityTypeConfiguration<AccessRequest>
 {
     // Directory entity types are internal to their module, so cross-module foreign keys refer to them by name.
-    private const string UserEntity = "AccessFlow.Directory.User";
+    public const string UserEntity = "AccessFlow.Directory.User";
     private const string SystemEntity = "AccessFlow.Directory.AccessSystem";
 
     public const string SingleActiveIndex = "IX_access_requests_active_BeneficiaryId_SystemId";
@@ -37,5 +37,20 @@ internal sealed class AccessRequestConfiguration : IEntityTypeConfiguration<Acce
         request.HasOne(UserEntity, navigationName: null).WithMany().HasForeignKey(nameof(AccessRequest.RequesterId)).OnDelete(DeleteBehavior.Restrict);
         request.HasOne(UserEntity, navigationName: null).WithMany().HasForeignKey(nameof(AccessRequest.BeneficiaryId)).OnDelete(DeleteBehavior.Restrict);
         request.HasOne(SystemEntity, navigationName: null).WithMany().HasForeignKey(nameof(AccessRequest.SystemId)).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+internal sealed class AuditLogEntryConfiguration : IEntityTypeConfiguration<AuditLogEntry>
+{
+    public void Configure(EntityTypeBuilder<AuditLogEntry> entry)
+    {
+        entry.ToTable("audit_log", "access_requests");
+        entry.Property(e => e.Sequence).ValueGeneratedOnAdd();
+        entry.Property(e => e.Event).HasConversion<string>().HasMaxLength(32);
+        entry.Property(e => e.StatusBefore).HasConversion<string>().HasMaxLength(32);
+        entry.Property(e => e.StatusAfter).HasConversion<string>().HasMaxLength(32);
+
+        entry.HasOne<AccessRequest>().WithMany().HasForeignKey(e => e.AccessRequestId).OnDelete(DeleteBehavior.Restrict);
+        entry.HasOne(AccessRequestConfiguration.UserEntity, navigationName: null).WithMany().HasForeignKey(nameof(AuditLogEntry.ActorId)).OnDelete(DeleteBehavior.Restrict);
     }
 }

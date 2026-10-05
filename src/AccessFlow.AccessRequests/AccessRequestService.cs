@@ -24,12 +24,23 @@ public sealed record AccessRequestView(
     AccessRequestStatus Status,
     DateTimeOffset CreatedAt);
 
+public sealed record AuditLogEntryView(
+    Guid AccessRequestId,
+    AuditEvent Event,
+    Guid? ActorId,
+    DateTimeOffset OccurredAt,
+    AccessRequestStatus? StatusBefore,
+    AccessRequestStatus StatusAfter,
+    string? Justification);
+
 public sealed class AccessRequestService(DbContext db, IDirectory directory, TimeProvider timeProvider)
 {
     private readonly DbSet<AccessRequest> _accessRequests = db.Set<AccessRequest>();
+    private readonly DbSet<AuditLogEntry> _auditLog = db.Set<AuditLogEntry>();
 
     /// <summary>
-    /// Creates a Pending Access Request on behalf of the caller (BR-03…BR-09).
+    /// Creates a Pending Access Request on behalf of the caller (BR-03…BR-09)
+    /// together with its Created Audit Log entry in one transaction (BR-23, BR-28).
     /// </summary>
     public async Task<CreateAccessRequestResult> CreateAsync(Guid callerId, CreateAccessRequest command, CancellationToken cancellationToken)
     {
@@ -50,7 +61,10 @@ public sealed class AccessRequestService(DbContext db, IDirectory directory, Tim
         var request = AccessRequest.Create(
             callerId, command.BeneficiaryId, command.SystemId, command.Justification!, timeProvider.GetUtcNow());
 
+        var created = AuditLogEntry.Created(request);
+
         _accessRequests.Add(request);
+        _auditLog.Add(created);
         try
         {
             await db.SaveChangesAsync(cancellationToken);
@@ -58,6 +72,7 @@ public sealed class AccessRequestService(DbContext db, IDirectory directory, Tim
         catch (DbUpdateException e) when (ViolatesSingleActiveIndex(e))
         {
             db.Entry(request).State = EntityState.Detached;
+            db.Entry(created).State = EntityState.Detached;
             return new CreateAccessRequestResult.ActiveAccessRequestExists();
         }
 
@@ -75,14 +90,8 @@ public sealed class AccessRequestService(DbContext db, IDirectory directory, Tim
     /// </summary>
     public async Task<AccessRequestView?> GetAsync(Guid callerId, Guid id, CancellationToken cancellationToken)
     {
-        var request = await _accessRequests.AsNoTracking().SingleOrDefaultAsync(r => r.Id == id, cancellationToken);
+        var request = await FindVisibleAsync(callerId, id, cancellationToken);
         if (request is null)
-            return null;
-
-        var system = await directory.FindSystemAsync(request.SystemId, cancellationToken)
-            ?? throw new InvalidOperationException($"System {request.SystemId} of Access Request {request.Id} is missing.");
-
-        if (!request.IsVisibleTo(callerId, system.OwnerId))
             return null;
 
         return new AccessRequestView(
@@ -93,5 +102,35 @@ public sealed class AccessRequestService(DbContext db, IDirectory directory, Tim
             request.Justification,
             request.Status,
             request.CreatedAt);
+    }
+
+    /// <summary>
+    /// Returns the Audit Log of the Access Request in chronological order,
+    /// or null when the Access Request does not exist or is not visible to the caller (BR-29).
+    /// </summary>
+    public async Task<IReadOnlyList<AuditLogEntryView>?> GetAuditLogAsync(Guid callerId, Guid id, CancellationToken cancellationToken)
+    {
+        if (await FindVisibleAsync(callerId, id, cancellationToken) is null)
+            return null;
+
+        return await _auditLog
+            .Where(e => e.AccessRequestId == id)
+            .OrderBy(e => e.OccurredAt)
+            .ThenBy(e => e.Sequence)
+            .Select(e => new AuditLogEntryView(
+                e.AccessRequestId, e.Event, e.ActorId, e.OccurredAt, e.StatusBefore, e.StatusAfter, e.Justification))
+            .ToListAsync(cancellationToken);
+    }
+
+    private async Task<AccessRequest?> FindVisibleAsync(Guid callerId, Guid id, CancellationToken cancellationToken)
+    {
+        var request = await _accessRequests.AsNoTracking().SingleOrDefaultAsync(r => r.Id == id, cancellationToken);
+        if (request is null)
+            return null;
+
+        var system = await directory.FindSystemAsync(request.SystemId, cancellationToken)
+            ?? throw new InvalidOperationException($"System {request.SystemId} of Access Request {request.Id} is missing.");
+
+        return request.IsVisibleTo(callerId, system.OwnerId) ? request : null;
     }
 }
