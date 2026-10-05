@@ -38,4 +38,30 @@ internal sealed class AccessRequest
 
     public bool IsVisibleTo(Guid userId, Guid systemOwnerId) =>
         userId == RequesterId || userId == BeneficiaryId || userId == systemOwnerId;
+
+    // BR-10, BR-11: only the current System Owner decides, even on their own Access Request.
+    public bool CanBeDecidedBy(Guid userId, Guid systemOwnerId) => userId == systemOwnerId;
+
+    public bool IsPending => Status == AccessRequestStatus.Pending;
+
+    public AuditLogEntry Approve(Guid systemOwnerId, string? comment, DateTimeOffset now)
+    {
+        EnsurePending();
+        Status = AccessRequestStatus.Approved;
+        return AuditLogEntry.Approved(Id, systemOwnerId, comment, now);
+    }
+
+    public AuditLogEntry Reject(Guid systemOwnerId, string rejectionReason, DateTimeOffset now)
+    {
+        EnsurePending();
+        Status = AccessRequestStatus.Rejected;
+        return AuditLogEntry.Rejected(Id, systemOwnerId, rejectionReason, now);
+    }
+
+    // BR-12: callers check IsPending first; this guards the invariant.
+    private void EnsurePending()
+    {
+        if (!IsPending)
+            throw new InvalidOperationException($"Access Request {Id} is {Status}, not {AccessRequestStatus.Pending}.");
+    }
 }
