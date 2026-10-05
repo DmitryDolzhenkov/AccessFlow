@@ -1,6 +1,9 @@
 using AccessFlow.Api.Identity;
+using AccessFlow.Api.Persistence;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Testcontainers.PostgreSql;
 
 namespace AccessFlow.Tests;
@@ -38,6 +41,19 @@ public sealed class AccessFlowApiFactory : WebApplicationFactory<Program>, IAsyn
         if (headerValue is not null)
             client.DefaultRequestHeaders.Add(UserIdHeaderAuthenticationHandler.HeaderName, headerValue);
         return client;
+    }
+
+    /// <summary>
+    /// Removes all Access Requests, keeping the seeded Directory. Tests in the collection run sequentially.
+    /// </summary>
+    public Task ResetAsync() => ExecuteSqlAsync($"TRUNCATE access_requests.access_requests CASCADE");
+
+    public Task<int> ExecuteSqlAsync(FormattableString sql) => UseDbAsync(db => db.Database.ExecuteSqlAsync(sql));
+
+    public async Task<T> UseDbAsync<T>(Func<AccessFlowDbContext, Task<T>> action)
+    {
+        await using var scope = Services.CreateAsyncScope();
+        return await action(scope.ServiceProvider.GetRequiredService<AccessFlowDbContext>());
     }
 }
 

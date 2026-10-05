@@ -3,6 +3,11 @@ namespace AccessFlow.AccessRequests;
 public enum AccessRequestStatus
 {
     Pending,
+    Approved,
+    Provisioned,
+    ProvisioningFailed,
+    Rejected,
+    Cancelled,
 }
 
 internal sealed class AccessRequest

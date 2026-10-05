@@ -1,3 +1,4 @@
+using System.Data.Common;
 using AccessFlow.Directory;
 using Microsoft.EntityFrameworkCore;
 
@@ -10,6 +11,8 @@ public abstract record CreateAccessRequestResult
     public sealed record Created(Guid Id) : CreateAccessRequestResult;
 
     public sealed record Invalid(IReadOnlyDictionary<string, string[]> Errors) : CreateAccessRequestResult;
+
+    public sealed record ActiveAccessRequestExists : CreateAccessRequestResult;
 }
 
 public sealed record AccessRequestView(
@@ -26,7 +29,7 @@ public sealed class AccessRequestService(DbContext db, IDirectory directory, Tim
     private readonly DbSet<AccessRequest> _accessRequests = db.Set<AccessRequest>();
 
     /// <summary>
-    /// Creates a Pending Access Request on behalf of the caller (BR-03…BR-07).
+    /// Creates a Pending Access Request on behalf of the caller (BR-03…BR-09).
     /// </summary>
     public async Task<CreateAccessRequestResult> CreateAsync(Guid callerId, CreateAccessRequest command, CancellationToken cancellationToken)
     {
@@ -48,10 +51,24 @@ public sealed class AccessRequestService(DbContext db, IDirectory directory, Tim
             callerId, command.BeneficiaryId, command.SystemId, command.Justification!, timeProvider.GetUtcNow());
 
         _accessRequests.Add(request);
-        await db.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException e) when (ViolatesSingleActiveIndex(e))
+        {
+            db.Entry(request).State = EntityState.Detached;
+            return new CreateAccessRequestResult.ActiveAccessRequestExists();
+        }
 
         return new CreateAccessRequestResult.Created(request.Id);
     }
+
+    // 23505 is PostgreSQL unique_violation. Npgsql also puts the constraint name into DbException.Data,
+    // so the module needs no reference to the provider.
+    private static bool ViolatesSingleActiveIndex(DbUpdateException e) =>
+        e.InnerException is DbException { SqlState: "23505" } dbException
+        && dbException.Data["ConstraintName"] as string == AccessRequestConfiguration.SingleActiveIndex;
 
     /// <summary>
     /// Returns the Access Request, or null when it does not exist or is not visible to the caller (BR-29).
