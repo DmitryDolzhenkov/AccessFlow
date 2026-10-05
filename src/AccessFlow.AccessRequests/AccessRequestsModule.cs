@@ -24,7 +24,9 @@ internal sealed class AccessRequestConfiguration : IEntityTypeConfiguration<Acce
     public void Configure(EntityTypeBuilder<AccessRequest> request)
     {
         request.ToTable("access_requests", "access_requests");
-        request.Property(r => r.Status).HasConversion<string>().HasMaxLength(32);
+        // BR-15: a status change saves only if the status is still the one that was read,
+        // so of two concurrent actions on one Access Request the second gets a concurrency conflict.
+        request.Property(r => r.Status).HasConversion<string>().HasMaxLength(32).IsConcurrencyToken();
 
         // BR-08: at most one Active Access Request per Beneficiary + System, enforced by the database.
         request.HasIndex(r => new { r.BeneficiaryId, r.SystemId })

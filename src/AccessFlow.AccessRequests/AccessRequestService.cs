@@ -15,6 +15,23 @@ public abstract record CreateAccessRequestResult
     public sealed record ActiveAccessRequestExists : CreateAccessRequestResult;
 }
 
+public sealed record ApproveAccessRequest(string? Comment);
+
+public sealed record RejectAccessRequest(string? RejectionReason);
+
+public abstract record DecideAccessRequestResult
+{
+    public sealed record Decided : DecideAccessRequestResult;
+
+    public sealed record NotFound : DecideAccessRequestResult;
+
+    public sealed record Forbidden : DecideAccessRequestResult;
+
+    public sealed record Invalid(IReadOnlyDictionary<string, string[]> Errors) : DecideAccessRequestResult;
+
+    public sealed record NotPending : DecideAccessRequestResult;
+}
+
 public sealed record AccessRequestView(
     Guid Id,
     Guid RequesterId,
@@ -31,7 +48,9 @@ public sealed record AuditLogEntryView(
     DateTimeOffset OccurredAt,
     AccessRequestStatus? StatusBefore,
     AccessRequestStatus StatusAfter,
-    string? Justification);
+    string? Justification,
+    string? Comment,
+    string? RejectionReason);
 
 public sealed class AccessRequestService(DbContext db, IDirectory directory, TimeProvider timeProvider)
 {
@@ -86,6 +105,65 @@ public sealed class AccessRequestService(DbContext db, IDirectory directory, Tim
         && dbException.Data["ConstraintName"] as string == AccessRequestConfiguration.SingleActiveIndex;
 
     /// <summary>
+    /// Approves a Pending Access Request on behalf of its current System Owner
+    /// together with its Approved Audit Log entry in one transaction (BR-10…BR-13, BR-23, BR-28).
+    /// </summary>
+    public Task<DecideAccessRequestResult> ApproveAsync(Guid callerId, Guid id, ApproveAccessRequest command, CancellationToken cancellationToken) =>
+        DecideAsync(callerId, id, errors: null, (request, now) => request.Approve(callerId, command.Comment, now), cancellationToken);
+
+    /// <summary>
+    /// Rejects a Pending Access Request on behalf of its current System Owner
+    /// together with its Rejected Audit Log entry in one transaction (BR-10…BR-13, BR-23, BR-28).
+    /// </summary>
+    public Task<DecideAccessRequestResult> RejectAsync(Guid callerId, Guid id, RejectAccessRequest command, CancellationToken cancellationToken)
+    {
+        var errors = string.IsNullOrWhiteSpace(command.RejectionReason)
+            ? new Dictionary<string, string[]> { [nameof(command.RejectionReason)] = ["Rejection Reason is required."] }
+            : null;
+
+        return DecideAsync(
+            callerId, id, errors, (request, now) => request.Reject(callerId, command.RejectionReason!, now), cancellationToken);
+    }
+
+    // Refused attempts return before anything is saved, so they leave no Audit Log entry (BR-27).
+    private async Task<DecideAccessRequestResult> DecideAsync(
+        Guid callerId,
+        Guid id,
+        IReadOnlyDictionary<string, string[]>? errors,
+        Func<AccessRequest, DateTimeOffset, AuditLogEntry> decide,
+        CancellationToken cancellationToken)
+    {
+        var request = await _accessRequests.SingleOrDefaultAsync(r => r.Id == id, cancellationToken);
+        if (request is null)
+            return new DecideAccessRequestResult.NotFound();
+
+        // BR-10: the System Owner is resolved at the moment of the decision.
+        var systemOwnerId = await GetSystemOwnerIdAsync(request, cancellationToken);
+        if (!request.IsVisibleTo(callerId, systemOwnerId))
+            return new DecideAccessRequestResult.NotFound();
+        if (!request.CanBeDecidedBy(callerId, systemOwnerId))
+            return new DecideAccessRequestResult.Forbidden();
+
+        if (errors is not null)
+            return new DecideAccessRequestResult.Invalid(errors);
+        if (!request.IsPending)
+            return new DecideAccessRequestResult.NotPending();
+
+        _auditLog.Add(decide(request, timeProvider.GetUtcNow()));
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // BR-15: a concurrent action changed the status first; nothing of this one is saved.
+            return new DecideAccessRequestResult.NotPending();
+        }
+
+        return new DecideAccessRequestResult.Decided();
+    }
+
+    /// <summary>
     /// Returns the Access Request, or null when it does not exist or is not visible to the caller (BR-29).
     /// </summary>
     public async Task<AccessRequestView?> GetAsync(Guid callerId, Guid id, CancellationToken cancellationToken)
@@ -118,7 +196,7 @@ public sealed class AccessRequestService(DbContext db, IDirectory directory, Tim
             .OrderBy(e => e.OccurredAt)
             .ThenBy(e => e.Sequence)
             .Select(e => new AuditLogEntryView(
-                e.AccessRequestId, e.Event, e.ActorId, e.OccurredAt, e.StatusBefore, e.StatusAfter, e.Justification))
+                e.AccessRequestId, e.Event, e.ActorId, e.OccurredAt, e.StatusBefore, e.StatusAfter, e.Justification, e.Comment, e.RejectionReason))
             .ToListAsync(cancellationToken);
     }
 
@@ -128,9 +206,14 @@ public sealed class AccessRequestService(DbContext db, IDirectory directory, Tim
         if (request is null)
             return null;
 
+        return request.IsVisibleTo(callerId, await GetSystemOwnerIdAsync(request, cancellationToken)) ? request : null;
+    }
+
+    private async Task<Guid> GetSystemOwnerIdAsync(AccessRequest request, CancellationToken cancellationToken)
+    {
         var system = await directory.FindSystemAsync(request.SystemId, cancellationToken)
             ?? throw new InvalidOperationException($"System {request.SystemId} of Access Request {request.Id} is missing.");
 
-        return request.IsVisibleTo(callerId, system.OwnerId) ? request : null;
+        return system.OwnerId;
     }
 }

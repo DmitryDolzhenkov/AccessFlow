@@ -1,6 +1,7 @@
 using AccessFlow.AccessRequests;
 using AccessFlow.Api.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 
 namespace AccessFlow.Api.AccessRequests;
 
@@ -33,6 +34,46 @@ public sealed class AccessRequestsController(AccessRequestService service) : Con
             _ => throw new InvalidOperationException($"Unexpected result {result}."),
         };
     }
+
+    public sealed record ApproveBody(string? Comment);
+
+    // The comment is optional, so the whole body may be omitted (BR-13).
+    [HttpPost("{id:guid}/approve")]
+    public async Task<IActionResult> Approve(
+        Guid id, [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] ApproveBody? body, CancellationToken cancellationToken)
+    {
+        var result = await service.ApproveAsync(User.GetUserId(), id, new ApproveAccessRequest(body?.Comment), cancellationToken);
+        return ToActionResult(result);
+    }
+
+    public sealed record RejectBody(string? RejectionReason);
+
+    // A missing body is a missing Rejection Reason: 400 from the service, like an empty one (BR-13).
+    [HttpPost("{id:guid}/reject")]
+    public async Task<IActionResult> Reject(
+        Guid id, [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] RejectBody? body, CancellationToken cancellationToken)
+    {
+        var result = await service.RejectAsync(User.GetUserId(), id, new RejectAccessRequest(body?.RejectionReason), cancellationToken);
+        return ToActionResult(result);
+    }
+
+    private IActionResult ToActionResult(DecideAccessRequestResult result) =>
+        result switch
+        {
+            DecideAccessRequestResult.Decided => NoContent(),
+            DecideAccessRequestResult.NotFound => NotFound(),
+            DecideAccessRequestResult.Forbidden =>
+                Problem(
+                    statusCode: StatusCodes.Status403Forbidden,
+                    detail: "Only the current System Owner can decide on this Access Request."),
+            DecideAccessRequestResult.Invalid invalid =>
+                ValidationProblem(new ValidationProblemDetails(invalid.Errors.ToDictionary())),
+            DecideAccessRequestResult.NotPending =>
+                Problem(
+                    statusCode: StatusCodes.Status409Conflict,
+                    detail: "Only a Pending Access Request can be decided."),
+            _ => throw new InvalidOperationException($"Unexpected result {result}."),
+        };
 
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<AccessRequestView>> Get(Guid id, CancellationToken cancellationToken)

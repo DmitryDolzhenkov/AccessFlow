@@ -30,6 +30,8 @@ internal sealed class AuditLogEntry
     public AccessRequestStatus? StatusBefore { get; private init; }
     public AccessRequestStatus StatusAfter { get; private init; }
     public string? Justification { get; private init; }
+    public string? Comment { get; private init; }
+    public string? RejectionReason { get; private init; }
 
     public static AuditLogEntry Created(AccessRequest request) =>
         new()
@@ -42,5 +44,31 @@ internal sealed class AuditLogEntry
             StatusBefore = null,
             StatusAfter = request.Status,
             Justification = request.Justification,
+        };
+
+    public static AuditLogEntry Approved(Guid accessRequestId, Guid systemOwnerId, string? comment, DateTimeOffset now) =>
+        new()
+        {
+            Id = Guid.CreateVersion7(now),
+            AccessRequestId = accessRequestId,
+            Event = AuditEvent.Approved,
+            ActorId = systemOwnerId,
+            OccurredAt = now,
+            StatusBefore = AccessRequestStatus.Pending,
+            StatusAfter = AccessRequestStatus.Approved,
+            Comment = string.IsNullOrWhiteSpace(comment) ? null : comment,
+        };
+
+    public static AuditLogEntry Rejected(Guid accessRequestId, Guid systemOwnerId, string rejectionReason, DateTimeOffset now) =>
+        new()
+        {
+            Id = Guid.CreateVersion7(now),
+            AccessRequestId = accessRequestId,
+            Event = AuditEvent.Rejected,
+            ActorId = systemOwnerId,
+            OccurredAt = now,
+            StatusBefore = AccessRequestStatus.Pending,
+            StatusAfter = AccessRequestStatus.Rejected,
+            RejectionReason = rejectionReason,
         };
 }
