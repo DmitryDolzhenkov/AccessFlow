@@ -27,7 +27,7 @@ public sealed record AccessRequestView(
 public sealed record AuditLogEntryView(
     Guid AccessRequestId,
     AuditEvent Event,
-    Guid ActorId,
+    Guid? ActorId,
     DateTimeOffset OccurredAt,
     AccessRequestStatus? StatusBefore,
     AccessRequestStatus StatusAfter,
@@ -116,7 +116,7 @@ public sealed class AccessRequestService(DbContext db, IDirectory directory, Tim
         return await _auditLog
             .Where(e => e.AccessRequestId == id)
             .OrderBy(e => e.OccurredAt)
-            .ThenBy(e => e.Id)
+            .ThenBy(e => e.Sequence)
             .Select(e => new AuditLogEntryView(
                 e.AccessRequestId, e.Event, e.ActorId, e.OccurredAt, e.StatusBefore, e.StatusAfter, e.Justification))
             .ToListAsync(cancellationToken);

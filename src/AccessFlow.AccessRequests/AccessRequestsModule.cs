@@ -45,6 +45,7 @@ internal sealed class AuditLogEntryConfiguration : IEntityTypeConfiguration<Audi
     public void Configure(EntityTypeBuilder<AuditLogEntry> entry)
     {
         entry.ToTable("audit_log", "access_requests");
+        entry.Property(e => e.Sequence).ValueGeneratedOnAdd();
         entry.Property(e => e.Event).HasConversion<string>().HasMaxLength(32);
         entry.Property(e => e.StatusBefore).HasConversion<string>().HasMaxLength(32);
         entry.Property(e => e.StatusAfter).HasConversion<string>().HasMaxLength(32);

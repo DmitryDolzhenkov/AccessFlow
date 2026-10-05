@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace AccessFlow.Api.Persistence.Migrations
 {
     [DbContext(typeof(AccessFlowDbContext))]
-    [Migration("20261005193023_AuditLog")]
+    [Migration("20261005194719_AuditLog")]
     partial class AuditLog
     {
         /// <inheritdoc />
@@ -77,7 +77,7 @@ namespace AccessFlow.Api.Persistence.Migrations
                     b.Property<Guid>("AccessRequestId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("ActorId")
+                    b.Property<Guid?>("ActorId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("Event")
@@ -90,6 +90,12 @@ namespace AccessFlow.Api.Persistence.Migrations
 
                     b.Property<DateTimeOffset>("OccurredAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("Sequence")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Sequence"));
 
                     b.Property<string>("StatusAfter")
                         .IsRequired()
@@ -221,8 +227,7 @@ namespace AccessFlow.Api.Persistence.Migrations
                     b.HasOne("AccessFlow.Directory.User", null)
                         .WithMany()
                         .HasForeignKey("ActorId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("AccessFlow.Directory.AccessSystem", b =>

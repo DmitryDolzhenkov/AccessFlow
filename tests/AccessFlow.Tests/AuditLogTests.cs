@@ -17,7 +17,7 @@ public sealed class AuditLogTests(AccessFlowApiFactory factory) : IAsyncLifetime
     private sealed record AuditLogEntryDto(
         Guid AccessRequestId,
         string Event,
-        Guid ActorId,
+        Guid? ActorId,
         DateTimeOffset OccurredAt,
         string? StatusBefore,
         string StatusAfter,

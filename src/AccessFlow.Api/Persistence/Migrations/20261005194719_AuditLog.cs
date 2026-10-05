@@ -1,5 +1,6 @@
 ﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
+using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
@@ -17,9 +18,11 @@ namespace AccessFlow.Api.Persistence.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    Sequence = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     AccessRequestId = table.Column<Guid>(type: "uuid", nullable: false),
                     Event = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
-                    ActorId = table.Column<Guid>(type: "uuid", nullable: false),
+                    ActorId = table.Column<Guid>(type: "uuid", nullable: true),
                     OccurredAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     StatusBefore = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: true),
                     StatusAfter = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
