@@ -43,7 +43,7 @@ public sealed class AccessRequestsController(AccessRequestService service) : Con
         Guid id, [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] ApproveBody? body, CancellationToken cancellationToken)
     {
         var result = await service.ApproveAsync(User.GetUserId(), id, new ApproveAccessRequest(body?.Comment), cancellationToken);
-        return ToActionResult(result);
+        return ToActionResult(result, OnlySystemOwnerDecides);
     }
 
     public sealed record RejectBody(string? RejectionReason);
@@ -54,24 +54,31 @@ public sealed class AccessRequestsController(AccessRequestService service) : Con
         Guid id, [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] RejectBody? body, CancellationToken cancellationToken)
     {
         var result = await service.RejectAsync(User.GetUserId(), id, new RejectAccessRequest(body?.RejectionReason), cancellationToken);
-        return ToActionResult(result);
+        return ToActionResult(result, OnlySystemOwnerDecides);
     }
 
-    private IActionResult ToActionResult(DecideAccessRequestResult result) =>
+    [HttpPost("{id:guid}/cancel")]
+    public async Task<IActionResult> Cancel(Guid id, CancellationToken cancellationToken)
+    {
+        var result = await service.CancelAsync(User.GetUserId(), id, cancellationToken);
+        return ToActionResult(result, "Only the Requester can cancel this Access Request.");
+    }
+
+    private const string OnlySystemOwnerDecides = "Only the current System Owner can decide on this Access Request.";
+
+    private IActionResult ToActionResult(AccessRequestActionResult result, string forbiddenDetail) =>
         result switch
         {
-            DecideAccessRequestResult.Decided => NoContent(),
-            DecideAccessRequestResult.NotFound => NotFound(),
-            DecideAccessRequestResult.Forbidden =>
-                Problem(
-                    statusCode: StatusCodes.Status403Forbidden,
-                    detail: "Only the current System Owner can decide on this Access Request."),
-            DecideAccessRequestResult.Invalid invalid =>
+            AccessRequestActionResult.Done => NoContent(),
+            AccessRequestActionResult.NotFound => NotFound(),
+            AccessRequestActionResult.Forbidden =>
+                Problem(statusCode: StatusCodes.Status403Forbidden, detail: forbiddenDetail),
+            AccessRequestActionResult.Invalid invalid =>
                 ValidationProblem(new ValidationProblemDetails(invalid.Errors.ToDictionary())),
-            DecideAccessRequestResult.NotPending =>
+            AccessRequestActionResult.NotPending =>
                 Problem(
                     statusCode: StatusCodes.Status409Conflict,
-                    detail: "Only a Pending Access Request can be decided."),
+                    detail: "The Access Request is no longer Pending."),
             _ => throw new InvalidOperationException($"Unexpected result {result}."),
         };
 

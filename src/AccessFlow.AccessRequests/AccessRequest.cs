@@ -42,6 +42,9 @@ internal sealed class AccessRequest
     // BR-10, BR-11: only the current System Owner decides, even on their own Access Request.
     public bool CanBeDecidedBy(Guid userId, Guid systemOwnerId) => userId == systemOwnerId;
 
+    // BR-14: only the Requester cancels, whatever other role they also hold.
+    public bool CanBeCancelledBy(Guid userId) => userId == RequesterId;
+
     public bool IsPending => Status == AccessRequestStatus.Pending;
 
     public AuditLogEntry Approve(Guid systemOwnerId, string? comment, DateTimeOffset now)
@@ -56,6 +59,13 @@ internal sealed class AccessRequest
         EnsurePending();
         Status = AccessRequestStatus.Rejected;
         return AuditLogEntry.Rejected(Id, systemOwnerId, rejectionReason, now);
+    }
+
+    public AuditLogEntry Cancel(DateTimeOffset now)
+    {
+        EnsurePending();
+        Status = AccessRequestStatus.Cancelled;
+        return AuditLogEntry.Cancelled(Id, RequesterId, now);
     }
 
     // BR-12: callers check IsPending first; this guards the invariant.
