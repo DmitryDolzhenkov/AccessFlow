@@ -10,3 +10,4 @@
 | #7 | Списки: мои заявки и ждут моего решения | Done | `GET /access-requests/mine` (Requester или Beneficiary, все статусы) и `/pending-my-decision` (Pending к System, которыми вызывающий владеет в момент запроса — `IDirectory.GetOwnedSystemIdsAsync`). Ответ — массив того же представления, что `GET /access-requests/{id}`, без обёртки и пагинации. Порядок: `CreatedAt` по убыванию, затем `Id` для детерминизма. Миграция не нужна: индексы на `RequesterId`, `BeneficiaryId`, `SystemId` уже есть. |
 | #8 | Provisioning: outbox, фоновый обработчик, успешный путь | Todo | |
 | #9 | Provisioning: ошибки, повторы и ProvisioningFailed | Todo | |
+| #17 | Пагинация списков заявок | Todo | Формат (обёртка, курсор, лимиты) — подтвердить до начала работы. |
