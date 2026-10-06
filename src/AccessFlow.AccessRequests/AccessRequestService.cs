@@ -1,4 +1,5 @@
 using System.Data.Common;
+using System.Linq.Expressions;
 using AccessFlow.Directory;
 using Microsoft.EntityFrameworkCore;
 
@@ -228,6 +229,36 @@ public sealed class AccessRequestService(DbContext db, IDirectory directory, Tim
                 e.AccessRequestId, e.Event, e.ActorId, e.OccurredAt, e.StatusBefore, e.StatusAfter, e.Justification, e.Comment, e.RejectionReason))
             .ToListAsync(cancellationToken);
     }
+
+    /// <summary>
+    /// Returns the Access Requests where the caller is the Requester or the Beneficiary, newest first.
+    /// </summary>
+    public Task<IReadOnlyList<AccessRequestView>> GetMineAsync(Guid callerId, CancellationToken cancellationToken) =>
+        ListAsync(r => r.RequesterId == callerId || r.BeneficiaryId == callerId, cancellationToken);
+
+    /// <summary>
+    /// Returns the Pending Access Requests to the Systems the caller currently owns, newest first.
+    /// </summary>
+    public async Task<IReadOnlyList<AccessRequestView>> GetPendingMyDecisionAsync(Guid callerId, CancellationToken cancellationToken)
+    {
+        // BR-10: the System Owner is resolved at the moment of the query.
+        var systemIds = await directory.GetOwnedSystemIdsAsync(callerId, cancellationToken);
+
+        return await ListAsync(
+            r => r.Status == AccessRequestStatus.Pending && systemIds.Contains(r.SystemId),
+            cancellationToken);
+    }
+
+    private async Task<IReadOnlyList<AccessRequestView>> ListAsync(
+        Expression<Func<AccessRequest, bool>> filter, CancellationToken cancellationToken) =>
+        await _accessRequests
+            .Where(filter)
+            .OrderByDescending(r => r.CreatedAt)
+            // Id only makes the order deterministic when creation times coincide.
+            .ThenByDescending(r => r.Id)
+            .Select(r => new AccessRequestView(
+                r.Id, r.RequesterId, r.BeneficiaryId, r.SystemId, r.Justification, r.Status, r.CreatedAt))
+            .ToListAsync(cancellationToken);
 
     private async Task<AccessRequest?> FindVisibleAsync(Guid callerId, Guid id, CancellationToken cancellationToken)
     {

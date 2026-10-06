@@ -22,4 +22,10 @@ internal sealed class EfDirectory(DbContext db) : IDirectory
             .Where(s => s.Id == systemId)
             .Select(s => new SystemInfo(s.Id, s.OwnerId))
             .SingleOrDefaultAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<Guid>> GetOwnedSystemIdsAsync(Guid ownerId, CancellationToken cancellationToken) =>
+        await db.Set<AccessSystem>()
+            .Where(s => s.OwnerId == ownerId)
+            .Select(s => s.Id)
+            .ToListAsync(cancellationToken);
 }

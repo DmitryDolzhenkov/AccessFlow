@@ -82,6 +82,14 @@ public sealed class AccessRequestsController(AccessRequestService service) : Con
             _ => throw new InvalidOperationException($"Unexpected result {result}."),
         };
 
+    [HttpGet("mine")]
+    public async Task<IReadOnlyList<AccessRequestView>> GetMine(CancellationToken cancellationToken) =>
+        await service.GetMineAsync(User.GetUserId(), cancellationToken);
+
+    [HttpGet("pending-my-decision")]
+    public async Task<IReadOnlyList<AccessRequestView>> GetPendingMyDecision(CancellationToken cancellationToken) =>
+        await service.GetPendingMyDecisionAsync(User.GetUserId(), cancellationToken);
+
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<AccessRequestView>> Get(Guid id, CancellationToken cancellationToken)
     {
