@@ -3,13 +3,6 @@ using Microsoft.Extensions.Options;
 
 namespace AccessFlow.Api.Provisioning;
 
-public sealed class ProvisioningOptions
-{
-    public const string Section = "Provisioning";
-
-    public TimeSpan PollInterval { get; init; } = TimeSpan.FromSeconds(1);
-}
-
 /// <summary>
 /// Runs Provisioning in the background of the same process (BR-16, ADR 0002):
 /// polls the outbox in the database, so it also picks up entries left before a restart.

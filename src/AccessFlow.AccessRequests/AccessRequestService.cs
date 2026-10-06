@@ -51,7 +51,8 @@ public sealed record AuditLogEntryView(
     AccessRequestStatus StatusAfter,
     string? Justification,
     string? Comment,
-    string? RejectionReason);
+    string? RejectionReason,
+    string? ProvisioningFailureReason);
 
 public sealed class AccessRequestService(DbContext db, IDirectory directory, TimeProvider timeProvider)
 {
@@ -229,7 +230,8 @@ public sealed class AccessRequestService(DbContext db, IDirectory directory, Tim
             .OrderBy(e => e.OccurredAt)
             .ThenBy(e => e.Sequence)
             .Select(e => new AuditLogEntryView(
-                e.AccessRequestId, e.Event, e.ActorId, e.OccurredAt, e.StatusBefore, e.StatusAfter, e.Justification, e.Comment, e.RejectionReason))
+                e.AccessRequestId, e.Event, e.ActorId, e.OccurredAt, e.StatusBefore, e.StatusAfter,
+                e.Justification, e.Comment, e.RejectionReason, e.ProvisioningFailureReason))
             .ToListAsync(cancellationToken);
     }
 

@@ -7,6 +7,7 @@ using AccessFlow.Directory;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -22,8 +23,13 @@ builder.Services.AddAccessRequestsModule();
 builder.Services.AddOptions<ProvisioningOptions>()
     .Bind(builder.Configuration.GetSection(ProvisioningOptions.Section))
     .Validate(options => options.PollInterval > TimeSpan.Zero, "Provisioning:PollInterval must be positive.")
+    .Validate(options => options.MaxAttempts >= 1, "Provisioning:MaxAttempts must be at least 1.")
+    .Validate(options => options.BaseDelay >= TimeSpan.Zero, "Provisioning:BaseDelay must not be negative.")
+    .Validate(options => options.Timeout > TimeSpan.Zero, "Provisioning:Timeout must be positive.")
     .ValidateOnStart();
-builder.Services.AddHttpClient<ProvisioningService>();
+builder.Services.AddSingleton(sp => sp.GetRequiredService<IOptions<ProvisioningOptions>>().Value);
+// BR-20: an attempt the System does not answer within the timeout fails as a timeout.
+builder.Services.AddHttpClient<ProvisioningService>((sp, client) => client.Timeout = sp.GetRequiredService<ProvisioningOptions>().Timeout);
 builder.Services.AddHostedService<ProvisioningWorker>();
 
 builder.Services

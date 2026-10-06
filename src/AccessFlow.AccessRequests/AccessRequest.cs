@@ -73,10 +73,23 @@ internal sealed class AccessRequest
     // BR-18: the System answered 2xx; the actor is AccessFlow itself (BR-25).
     public AuditLogEntry CompleteProvisioning(DateTimeOffset now)
     {
-        if (!IsApproved)
-            throw new InvalidOperationException($"Access Request {Id} is {Status}, not {AccessRequestStatus.Approved}.");
+        EnsureApproved();
         Status = AccessRequestStatus.Provisioned;
         return AuditLogEntry.Provisioned(Id, now);
+    }
+
+    // BR-19, BR-20: Provisioning failed for good; the actor is AccessFlow itself (BR-25).
+    public AuditLogEntry FailProvisioning(string reason, DateTimeOffset now)
+    {
+        EnsureApproved();
+        Status = AccessRequestStatus.ProvisioningFailed;
+        return AuditLogEntry.ProvisioningFailed(Id, reason, now);
+    }
+
+    private void EnsureApproved()
+    {
+        if (!IsApproved)
+            throw new InvalidOperationException($"Access Request {Id} is {Status}, not {AccessRequestStatus.Approved}.");
     }
 
     // BR-12: callers check IsPending first; this guards the invariant.

@@ -32,6 +32,7 @@ internal sealed class AuditLogEntry
     public string? Justification { get; private init; }
     public string? Comment { get; private init; }
     public string? RejectionReason { get; private init; }
+    public string? ProvisioningFailureReason { get; private init; }
 
     public static AuditLogEntry Created(AccessRequest request) =>
         new()
@@ -94,5 +95,18 @@ internal sealed class AuditLogEntry
             OccurredAt = now,
             StatusBefore = AccessRequestStatus.Approved,
             StatusAfter = AccessRequestStatus.Provisioned,
+        };
+
+    public static AuditLogEntry ProvisioningFailed(Guid accessRequestId, string reason, DateTimeOffset now) =>
+        new()
+        {
+            Id = Guid.CreateVersion7(now),
+            AccessRequestId = accessRequestId,
+            Event = AuditEvent.ProvisioningFailed,
+            ActorId = null,
+            OccurredAt = now,
+            StatusBefore = AccessRequestStatus.Approved,
+            StatusAfter = AccessRequestStatus.ProvisioningFailed,
+            ProvisioningFailureReason = reason,
         };
 }
