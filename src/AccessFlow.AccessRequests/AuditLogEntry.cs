@@ -71,4 +71,16 @@ internal sealed class AuditLogEntry
             StatusAfter = AccessRequestStatus.Rejected,
             RejectionReason = rejectionReason,
         };
+
+    public static AuditLogEntry Cancelled(Guid accessRequestId, Guid requesterId, DateTimeOffset now) =>
+        new()
+        {
+            Id = Guid.CreateVersion7(now),
+            AccessRequestId = accessRequestId,
+            Event = AuditEvent.Cancelled,
+            ActorId = requesterId,
+            OccurredAt = now,
+            StatusBefore = AccessRequestStatus.Pending,
+            StatusAfter = AccessRequestStatus.Cancelled,
+        };
 }
