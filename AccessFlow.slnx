@@ -3,6 +3,7 @@
     <Project Path="src/AccessFlow.AccessRequests/AccessFlow.AccessRequests.csproj" />
     <Project Path="src/AccessFlow.Api/AccessFlow.Api.csproj" />
     <Project Path="src/AccessFlow.Directory/AccessFlow.Directory.csproj" />
+    <Project Path="src/AccessFlow.SystemStub/AccessFlow.SystemStub.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/AccessFlow.Tests/AccessFlow.Tests.csproj" />

@@ -12,4 +12,4 @@ public interface IDirectory
     Task<IReadOnlyList<Guid>> GetOwnedSystemIdsAsync(Guid ownerId, CancellationToken cancellationToken);
 }
 
-public sealed record SystemInfo(Guid Id, Guid OwnerId);
+public sealed record SystemInfo(Guid Id, Guid OwnerId, string ProvisioningUrl);

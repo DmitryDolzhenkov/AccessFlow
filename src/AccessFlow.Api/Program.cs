@@ -2,6 +2,7 @@ using System.Text.Json.Serialization;
 using AccessFlow.AccessRequests;
 using AccessFlow.Api.Identity;
 using AccessFlow.Api.Persistence;
+using AccessFlow.Api.Provisioning;
 using AccessFlow.Directory;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
@@ -17,6 +18,13 @@ builder.Services.AddDbContext<AccessFlowDbContext>(options => options.UseNpgsql(
 builder.Services.AddScoped<DbContext>(sp => sp.GetRequiredService<AccessFlowDbContext>());
 builder.Services.AddDirectoryModule();
 builder.Services.AddAccessRequestsModule();
+
+builder.Services.AddOptions<ProvisioningOptions>()
+    .Bind(builder.Configuration.GetSection(ProvisioningOptions.Section))
+    .Validate(options => options.PollInterval > TimeSpan.Zero, "Provisioning:PollInterval must be positive.")
+    .ValidateOnStart();
+builder.Services.AddHttpClient<ProvisioningService>();
+builder.Services.AddHostedService<ProvisioningWorker>();
 
 builder.Services
     .AddAuthentication(UserIdHeaderAuthenticationHandler.SchemeName)

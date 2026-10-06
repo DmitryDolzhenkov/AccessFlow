@@ -83,4 +83,16 @@ internal sealed class AuditLogEntry
             StatusBefore = AccessRequestStatus.Pending,
             StatusAfter = AccessRequestStatus.Cancelled,
         };
+
+    public static AuditLogEntry Provisioned(Guid accessRequestId, DateTimeOffset now) =>
+        new()
+        {
+            Id = Guid.CreateVersion7(now),
+            AccessRequestId = accessRequestId,
+            Event = AuditEvent.Provisioned,
+            ActorId = null,
+            OccurredAt = now,
+            StatusBefore = AccessRequestStatus.Approved,
+            StatusAfter = AccessRequestStatus.Provisioned,
+        };
 }
