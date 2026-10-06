@@ -22,6 +22,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\AccessFlow.Api\AccessFlow.Api.csproj" />
+    <ProjectReference Include="..\..\src\AccessFlow.SystemStub\AccessFlow.SystemStub.csproj" />
   </ItemGroup>
 
 </Project>

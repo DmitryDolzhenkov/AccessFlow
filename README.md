@@ -12,5 +12,6 @@
    ```
 
 4. `dotnet run --project src/AccessFlow.Api` — база `accessflow` создаётся, миграции применяются при старте.
+5. `dotnet run --project src/AccessFlow.SystemStub` — заглушка System на `http://localhost:5199`: принимает вызовы Provisioning по URL из seed-данных и всегда выдаёт доступ. Без неё одобренные заявки остаются в Approved.
 
 Тесты (`dotnet test`) поднимают собственный PostgreSQL через Testcontainers; нужен только запущенный Docker.

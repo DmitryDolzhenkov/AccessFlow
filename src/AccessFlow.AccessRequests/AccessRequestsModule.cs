@@ -56,3 +56,16 @@ internal sealed class AuditLogEntryConfiguration : IEntityTypeConfiguration<Audi
         entry.HasOne(AccessRequestConfiguration.UserEntity, navigationName: null).WithMany().HasForeignKey(nameof(AuditLogEntry.ActorId)).OnDelete(DeleteBehavior.Restrict);
     }
 }
+
+internal sealed class ProvisioningOutboxEntryConfiguration : IEntityTypeConfiguration<ProvisioningOutboxEntry>
+{
+    public void Configure(EntityTypeBuilder<ProvisioningOutboxEntry> entry)
+    {
+        entry.ToTable("provisioning_outbox", "access_requests");
+        // The worker polls only unprocessed entries, oldest first.
+        entry.HasIndex(e => e.CreatedAt).HasFilter("\"ProcessedAt\" IS NULL");
+
+        // Not unique: a losing concurrent approval must fail on the status concurrency token (BR-15), not on this index.
+        entry.HasOne<AccessRequest>().WithMany().HasForeignKey(e => e.AccessRequestId).OnDelete(DeleteBehavior.Restrict);
+    }
+}

@@ -68,6 +68,17 @@ internal sealed class AccessRequest
         return AuditLogEntry.Cancelled(Id, RequesterId, now);
     }
 
+    public bool IsApproved => Status == AccessRequestStatus.Approved;
+
+    // BR-18: the System answered 2xx; the actor is AccessFlow itself (BR-25).
+    public AuditLogEntry CompleteProvisioning(DateTimeOffset now)
+    {
+        if (!IsApproved)
+            throw new InvalidOperationException($"Access Request {Id} is {Status}, not {AccessRequestStatus.Approved}.");
+        Status = AccessRequestStatus.Provisioned;
+        return AuditLogEntry.Provisioned(Id, now);
+    }
+
     // BR-12: callers check IsPending first; this guards the invariant.
     private void EnsurePending()
     {

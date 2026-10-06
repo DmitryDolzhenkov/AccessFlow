@@ -108,6 +108,7 @@ public sealed class AccessRequestService(DbContext db, IDirectory directory, Tim
     /// <summary>
     /// Approves a Pending Access Request on behalf of its current System Owner
     /// together with its Approved Audit Log entry in one transaction (BR-10…BR-13, BR-23, BR-28).
+    /// Provisioning is only recorded in the outbox in the same transaction; the System is called later (BR-16).
     /// </summary>
     public Task<AccessRequestActionResult> ApproveAsync(Guid callerId, Guid id, ApproveAccessRequest command, CancellationToken cancellationToken) =>
         ChangeStatusAsync(
@@ -115,7 +116,7 @@ public sealed class AccessRequestService(DbContext db, IDirectory directory, Tim
             id,
             (request, systemOwnerId) => request.CanBeDecidedBy(callerId, systemOwnerId),
             errors: null,
-            (request, now) => request.Approve(callerId, command.Comment, now),
+            (request, now) => [request.Approve(callerId, command.Comment, now), ProvisioningOutboxEntry.For(request.Id, now)],
             cancellationToken);
 
     /// <summary>
@@ -133,7 +134,7 @@ public sealed class AccessRequestService(DbContext db, IDirectory directory, Tim
             id,
             (request, systemOwnerId) => request.CanBeDecidedBy(callerId, systemOwnerId),
             errors,
-            (request, now) => request.Reject(callerId, command.RejectionReason!, now),
+            (request, now) => [request.Reject(callerId, command.RejectionReason!, now)],
             cancellationToken);
     }
 
@@ -147,7 +148,7 @@ public sealed class AccessRequestService(DbContext db, IDirectory directory, Tim
             id,
             (request, _) => request.CanBeCancelledBy(callerId),
             errors: null,
-            (request, now) => request.Cancel(now),
+            (request, now) => [request.Cancel(now)],
             cancellationToken);
 
     // Refused attempts return before anything is saved, so they leave no Audit Log entry (BR-27).
@@ -156,7 +157,8 @@ public sealed class AccessRequestService(DbContext db, IDirectory directory, Tim
         Guid id,
         Func<AccessRequest, Guid, bool> isAllowed,
         IReadOnlyDictionary<string, string[]>? errors,
-        Func<AccessRequest, DateTimeOffset, AuditLogEntry> change,
+        // Changes the Access Request and returns the records to save with it: its Audit Log entry and any others.
+        Func<AccessRequest, DateTimeOffset, object[]> change,
         CancellationToken cancellationToken)
     {
         var request = await _accessRequests.SingleOrDefaultAsync(r => r.Id == id, cancellationToken);
@@ -175,8 +177,8 @@ public sealed class AccessRequestService(DbContext db, IDirectory directory, Tim
         if (!request.IsPending)
             return new AccessRequestActionResult.NotPending();
 
-        var entry = change(request, timeProvider.GetUtcNow());
-        _auditLog.Add(entry);
+        var records = change(request, timeProvider.GetUtcNow());
+        db.AddRange(records);
         try
         {
             await db.SaveChangesAsync(cancellationToken);
@@ -186,7 +188,8 @@ public sealed class AccessRequestService(DbContext db, IDirectory directory, Tim
             // BR-15: a concurrent action changed the status first; nothing of this one is saved,
             // and nothing is left tracked for a later save in the same scope.
             db.Entry(request).State = EntityState.Detached;
-            db.Entry(entry).State = EntityState.Detached;
+            foreach (var record in records)
+                db.Entry(record).State = EntityState.Detached;
             return new AccessRequestActionResult.NotPending();
         }
 

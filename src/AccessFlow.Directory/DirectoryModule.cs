@@ -20,7 +20,7 @@ internal sealed class EfDirectory(DbContext db) : IDirectory
     public Task<SystemInfo?> FindSystemAsync(Guid systemId, CancellationToken cancellationToken) =>
         db.Set<AccessSystem>()
             .Where(s => s.Id == systemId)
-            .Select(s => new SystemInfo(s.Id, s.OwnerId))
+            .Select(s => new SystemInfo(s.Id, s.OwnerId, s.ProvisioningUrl))
             .SingleOrDefaultAsync(cancellationToken);
 
     public async Task<IReadOnlyList<Guid>> GetOwnedSystemIdsAsync(Guid ownerId, CancellationToken cancellationToken) =>
