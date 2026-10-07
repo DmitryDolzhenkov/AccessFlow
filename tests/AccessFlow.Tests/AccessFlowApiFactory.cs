@@ -41,6 +41,9 @@ public sealed class AccessFlowApiFactory : WebApplicationFactory<Program>, IAsyn
         builder.UseEnvironment("Testing");
         builder.UseSetting("ConnectionStrings:AccessFlow", _postgres.GetConnectionString());
         builder.UseSetting("Provisioning:PollInterval", "00:00:00.050");
+        builder.UseSetting("Provisioning:MaxAttempts", "3");
+        builder.UseSetting("Provisioning:BaseDelay", "00:00:00.100");
+        builder.UseSetting("Provisioning:Timeout", "00:00:01");
         builder.ConfigureTestServices(services =>
         {
             // Only instances from StartWithProvisioning provision, so other tests see Approved stay Approved.
